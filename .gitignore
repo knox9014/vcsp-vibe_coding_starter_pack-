@@ -1,0 +1,26 @@
+# 비밀 정보 (절대 올리지 않기)
+.env
+.env.local
+.env.*.local
+
+# 설치된 라이브러리 (다시 설치하면 됨)
+node_modules/
+__pycache__/
+.venv/
+venv/
+
+# 빌드 결과물
+dist/
+build/
+
+# 개인 설정
+.claude/settings.local.json
+
+# 운영체제가 만드는 파일
+.DS_Store
+Thumbs.db
+
+# 에디터
+.vscode/*
+!.vscode/extensions.json
+.idea/
