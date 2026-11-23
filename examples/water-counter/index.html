@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <!-- 휴대폰에서도 알맞은 크기로 보이게 하는 설정 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>물 마시기 카운터</title>
+  <style>
+    /* 화면 전체 모양 */
+    body {
+      font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background: #eaf6ff;
+      color: #12324a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    .count {
+      font-size: 96px;
+      font-weight: 700;
+      margin: 8px 0;
+    }
+    .cups {
+      font-size: 32px;
+      min-height: 40px;
+      text-align: center;
+      max-width: 320px;
+      word-break: break-all;
+    }
+    button {
+      font-size: 20px;
+      padding: 14px 28px;
+      margin: 6px;
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .add { background: #2b8cd6; color: white; }
+    .reset { background: transparent; color: #2b8cd6; text-decoration: underline; }
+    .goal { margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <h1>💧 오늘 마신 물</h1>
+  <div class="count" id="count">0</div>
+  <div class="cups" id="cups"></div>
+  <button class="add" id="addBtn">한 잔 마셨어요</button>
+  <button class="reset" id="resetBtn">처음부터</button>
+  <p class="goal" id="goal">목표: 8잔</p>
+
+  <script>
+    // 1) 저장된 숫자 불러오기 (없으면 0). localStorage = 브라우저 안의 작은 저장소
+    const GOAL = 8;
+    let count = Number(localStorage.getItem("waterCount")) || 0;
+
+    // 2) 화면에 숫자와 컵 그림 보여주기
+    function render() {
+      document.getElementById("count").textContent = count;
+      document.getElementById("cups").textContent = "🥛".repeat(count);
+      document.getElementById("goal").textContent =
+        count >= GOAL ? "🎉 오늘 목표 달성!" : `목표까지 ${GOAL - count}잔 남았어요`;
+      localStorage.setItem("waterCount", count); // 새로고침해도 남도록 저장
+    }
+
+    // 3) 버튼을 눌렀을 때 할 일
+    document.getElementById("addBtn").addEventListener("click", () => {
+      count = count + 1;
+      render();
+    });
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      if (confirm("0잔으로 되돌릴까요?")) {
+        count = 0;
+        render();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
