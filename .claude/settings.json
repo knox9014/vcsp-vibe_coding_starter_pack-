@@ -54,7 +54,8 @@
       "Bash(python3 -m pip *)",
       "Bash(py -m pip *)",
       "Bash(brew install *)",
-      "Bash(winget install *)"
+      "Bash(winget install *)",
+      "Read(./my-project/data/**)"
     ],
     "deny": [
       "Read(./.env)",
