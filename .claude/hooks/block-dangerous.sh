@@ -27,6 +27,8 @@ except Exception: pass' <<<"$payload"
 }
 
 cmd="$(extract_command)"
+# 따옴표 안의 글자(커밋 메시지 등)를 비운 버전. "명령"인지 판단할 때는 이걸 써서 오탐을 줄여요.
+bare="$(printf '%s' "$cmd" | sed -E "s/'[^']*'/''/g; s/\"[^\"]*\"/\"\"/g")"
 
 block() {
   echo "🛑 안전장치가 이 명령을 막았어요: $1" >&2
@@ -48,12 +50,17 @@ check_rm() {
   # "ls&&rm -rf ." 처럼 띄어쓰기 없이 붙여 쓴 명령도 나눠서 보도록, 구분 기호 앞뒤에 공백을 넣어요.
   spaced="$(printf '%s' "$cmd" | sed -E 's/(&&|\|\||;|\||&|\(|\))/ \1 /g')"
   read -ra words <<<"$spaced"
-  local in_rm=0
+  local in_rm=0 prev=";"
   for w in "${words[@]}"; do
     case "$w" in
-      rm) in_rm=1; continue ;;
-      ";"|"&&"|"||"|"|"|"&"|"("|")") in_rm=0; continue ;;
+      rm)
+        # 명령 자리에 온 rm만 봐요 ("git rm --cached", 문장 속 rm 은 제외)
+        case "$prev" in
+          ";"|"&&"|"||"|"|"|"&"|"("|sudo|xargs|exec|then|do|command) in_rm=1; prev="$w"; continue ;;
+        esac ;;
+      ";"|"&&"|"||"|"|"|"&"|"("|")") in_rm=0; prev="$w"; continue ;;
     esac
+    prev="$w"
     [ "$in_rm" = 1 ] || continue
     if [[ "$w" == -* ]]; then
       [[ "$w" == *[rR]* ]] && recursive=1
@@ -90,28 +97,31 @@ if printf '%s' "$cmd" | grep -Eq '(^|[;&|( ])grep +(-[a-zA-Z]*[rR]|--recursive)'
 fi
 
 # ── 나머지 규칙: "단계 :: 패턴 :: 이유" ───────────────────────────────────
+# 단계: block/ask 는 따옴표 밖(명령 부분)만, block-raw/ask-raw 는 명령 전체 글자를 검사해요.
 while IFS= read -r rule; do
   [ -z "$rule" ] && continue
   level="${rule%% :: *}"
   rest="${rule#* :: }"
   pattern="${rest%% :: *}"
   reason="${rest##* :: }"
-  if printf '%s' "$cmd" | grep -Eqi -- "$pattern"; then
-    if [ "$level" = block ]; then block "$reason"; else ask "$reason"; fi
+  target="$bare"
+  case "$level" in *-raw) target="$cmd" ;; esac
+  if printf '%s' "$target" | grep -Eqi -- "$pattern"; then
+    case "$level" in block*) block "$reason" ;; *) ask "$reason" ;; esac
   fi
 done <<'RULES'
 block :: (^|[;&|(]) *sudo  :: 관리자 권한 명령은 컴퓨터 전체에 영향을 줘요
 block :: git +push .*(--force|-f( |$)|\+[a-z]) :: 강제 푸시는 GitHub에 있는 기록을 지울 수 있어요
-block :: (cat|less|more|head|tail|type|bat|grep|awk|strings)( [^|;&]*)? [^ ]*\.env(\.local)?( |$) :: 비밀 키 파일(.env) 내용이 대화에 노출돼요
+block-raw :: \.env(\.local)?(['" );|&]|$) :: 비밀 키 파일(.env)은 AI가 열거나 다루지 않아요. 사용자가 직접 만들고 수정하도록 안내하세요
 block :: (^|[;&|(]) *printenv( |$) :: 비밀 키가 들어 있는 환경변수가 대화에 노출돼요
 block :: (^|[;&|(]) *env *($|[;&|)]) :: 비밀 키가 들어 있는 환경변수가 대화에 노출돼요
-block :: (curl|wget)[^|]*\| *(ba|z)?sh :: 인터넷에서 받은 스크립트를 확인 없이 실행하면 위험해요
+block-raw :: (curl|wget)[^|]*\| *(ba|z)?sh :: 인터넷에서 받은 스크립트를 확인 없이 실행하면 위험해요
 block :: chmod +-R +777 :: 모든 파일의 권한을 열어버려요
 ask :: git +reset +--hard :: 저장 안 한 변경, 그리고 지정한 지점 이후의 저장 기록까지 사라질 수 있어요. 보통은 /undo 를 쓰는 게 더 안전해요
 ask :: git +clean +-[a-z]*f :: Git에 저장된 적 없는 새 파일들이 삭제돼요
 ask :: git +(checkout +(--)? *|restore +)\.( |$) :: 저장 안 한 변경이 모두 사라져요. 보통은 /undo 를 쓰는 게 더 안전해요
 ask :: find .*(-delete|-exec +rm) :: 찾은 파일들을 한꺼번에 삭제해요. 무엇이 지워지는지 확인해 주세요
-ask :: (drop|truncate) +table :: 데이터베이스의 표(데이터)가 통째로 삭제돼요
+ask-raw :: (drop|truncate) +table :: 데이터베이스의 표(데이터)가 통째로 삭제돼요
 RULES
 
 exit 0

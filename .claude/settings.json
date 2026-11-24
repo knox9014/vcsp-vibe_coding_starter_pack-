@@ -33,7 +33,11 @@
       "Bash(git config core.quotepath false)",
       "Bash(git init -b main)",
       "Bash(git remote -v)",
-      "Bash(git branch --show-current)"
+      "Bash(git branch --show-current)",
+      "Bash(py *)",
+      "Bash(py --version)",
+      "Bash(chmod +x *.command)",
+      "Bash(git rev-parse --is-inside-work-tree)"
     ],
     "ask": [
       "Bash(npm install *)",
@@ -55,7 +59,8 @@
       "Bash(py -m pip *)",
       "Bash(brew install *)",
       "Bash(winget install *)",
-      "Read(./my-project/data/**)"
+      "Read(./my-project/data/**)",
+      "Read(./*/data/**)"
     ],
     "deny": [
       "Read(./.env)",
