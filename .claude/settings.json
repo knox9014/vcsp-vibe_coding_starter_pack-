@@ -46,6 +46,8 @@
       "Read(./.env.local)",
       "Read(./.env.*.local)",
       "Read(./**/.env)",
+      "Read(./**/.env.*.local)",
+      "Read(./**/.env.local)",
       "Edit(./.env)",
       "Bash(sudo *)",
       "Bash(git push --force *)",

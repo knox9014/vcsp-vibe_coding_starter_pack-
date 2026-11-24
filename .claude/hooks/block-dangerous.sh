@@ -44,13 +44,15 @@ ask() {
 
 # ── 폴더 삭제(rm -r)는 "무엇을" 지우는지 보고 판단 ─────────────────────────
 check_rm() {
-  local words recursive=0 w target danger=""
-  read -ra words <<<"$cmd"
+  local words recursive=0 w target danger="" spaced
+  # "ls&&rm -rf ." 처럼 띄어쓰기 없이 붙여 쓴 명령도 나눠서 보도록, 구분 기호 앞뒤에 공백을 넣어요.
+  spaced="$(printf '%s' "$cmd" | sed -E 's/(&&|\|\||;|\||&|\(|\))/ \1 /g')"
+  read -ra words <<<"$spaced"
   local in_rm=0
   for w in "${words[@]}"; do
     case "$w" in
       rm) in_rm=1; continue ;;
-      ";"|"&&"|"||"|"|") in_rm=0; continue ;;
+      ";"|"&&"|"||"|"|"|"&"|"("|")") in_rm=0; continue ;;
     esac
     [ "$in_rm" = 1 ] || continue
     if [[ "$w" == -* ]]; then
@@ -75,7 +77,7 @@ check_rm() {
   fi
 }
 
-if printf '%s' "$cmd" | grep -Eq '(^|[;&| ])rm( |$)'; then
+if printf '%s' "$cmd" | grep -Eq '(^|[;&|( ])rm( |$)'; then
   check_rm
 fi
 
