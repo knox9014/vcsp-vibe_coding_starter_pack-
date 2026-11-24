@@ -36,7 +36,10 @@
       "Bash(git restore *)",
       "Bash(git revert *)",
       "Bash(git stash pop *)",
-      "Bash(git stash drop *)"
+      "Bash(git stash drop *)",
+      "Bash(rm -rf *)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean *)"
     ],
     "deny": [
       "Read(./.env)",
@@ -44,12 +47,9 @@
       "Read(./.env.*.local)",
       "Read(./**/.env)",
       "Edit(./.env)",
-      "Bash(rm -rf *)",
       "Bash(sudo *)",
       "Bash(git push --force *)",
-      "Bash(git push -f *)",
-      "Bash(git reset --hard *)",
-      "Bash(git clean *)"
+      "Bash(git push -f *)"
     ]
   },
   "hooks": {

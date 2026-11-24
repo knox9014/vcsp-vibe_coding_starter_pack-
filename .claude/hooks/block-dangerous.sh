@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# 위험 명령 차단 훅 (Claude Code가 Bash 명령을 실행하기 직전에 호출됨)
+# 안전장치 훅 (Claude Code가 Bash 명령을 실행하기 직전에 호출됨)
 #
-# settings.json의 deny 목록은 "정확히 그 모양"의 명령만 막아요.
-# 이 훅은 명령 문자열 전체를 훑어서, 다른 모양으로 써도 위험한 패턴이면 한 번 더 막습니다.
+# 명령을 3단계로 나눠요.
+#   🛑 차단  : 되돌릴 수 없거나 비밀 키가 새는 명령 → 실행 안 함 (exit 2)
+#   ⚠️ 확인  : 되돌리기 어렵지만 가끔 필요한 명령 → 사용자에게 이유를 보여주고 "허용할까요?" 물어봄
+#   ✅ 통과  : 나머지 → 평소 권한 설정대로
 #
-# 종료 코드 2 = 실행 차단 (stderr 메시지가 AI에게 전달됨)
-# 종료 코드 0 = 통과
+# 입문자는 터미널을 직접 다루기 어려우니, 웬만한 건 "차단" 대신 "확인"으로 둬서
+# 사용자가 버튼 한 번으로 결정할 수 있게 했어요.
 
 payload="$(cat)"
 
@@ -20,39 +22,84 @@ extract_command() {
 try: print(json.loads(sys.stdin.read()).get("tool_input",{}).get("command",""))
 except Exception: pass' <<<"$payload"
   else
-    # 도구가 하나도 없으면 원문 전체를 검사 대상으로 씀 (조금 더 엄격해질 뿐 안전함)
     printf '%s' "$payload"
   fi
 }
 
 cmd="$(extract_command)"
 
-deny() {
+block() {
   echo "🛑 안전장치가 이 명령을 막았어요: $1" >&2
-  echo "사용자에게 무엇을 하려던 건지 쉽게 설명하고, 정말 필요하면 사용자가 직접 실행하도록 안내하세요." >&2
+  echo "사용자에게 무엇을 하려던 건지 쉽게 설명하고, 더 안전한 방법을 제안하세요." >&2
   exit 2
 }
 
-# 정규식(grep -E)으로 검사. 각 줄: "패턴 :: 이유"
+ask() {
+  # Claude Code가 사용자에게 확인 창을 띄우고, 이 이유를 함께 보여줘요.
+  local reason="⚠️ $1"
+  reason="${reason//\\/\\\\}"; reason="${reason//\"/\\\"}"
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"%s"}}\n' "$reason"
+  exit 0
+}
+
+# ── 폴더 삭제(rm -r)는 "무엇을" 지우는지 보고 판단 ─────────────────────────
+check_rm() {
+  local words recursive=0 w target danger=""
+  read -ra words <<<"$cmd"
+  local in_rm=0
+  for w in "${words[@]}"; do
+    case "$w" in
+      rm) in_rm=1; continue ;;
+      ";"|"&&"|"||"|"|") in_rm=0; continue ;;
+    esac
+    [ "$in_rm" = 1 ] || continue
+    if [[ "$w" == -* ]]; then
+      [[ "$w" == *[rR]* ]] && recursive=1
+      continue
+    fi
+    target="${w%/}"
+    target="${target#\"}"; target="${target%\"}"; target="${target#\'}"; target="${target%\'}"
+    # 프로젝트 안의 절대경로는 상대경로처럼 취급
+    if [ -n "$CLAUDE_PROJECT_DIR" ] && [[ "$target" == "$CLAUDE_PROJECT_DIR"/* ]]; then
+      target="${target#"$CLAUDE_PROJECT_DIR"/}"
+    fi
+    case "$target" in
+      ""|/|"~"|"~/"*|'$HOME'*|.|..|"*"|"./*"|"/*"|.git|*/.git|my-project) danger="$w" ;;
+      /*|*..*) danger="$w" ;;
+    esac
+    [ -n "$danger" ] && break
+  done
+  if [ "$recursive" = 1 ]; then
+    [ -n "$danger" ] && block "'$danger' 를 통째로 지우면 프로젝트나 컴퓨터의 파일이 사라져요"
+    ask "폴더를 통째로 삭제하려고 해요. 저장(/save)해 둔 상태라면 되돌릴 수 있어요. 무엇을 지우는지 확인하고 허용해 주세요."
+  fi
+}
+
+if printf '%s' "$cmd" | grep -Eq '(^|[;&| ])rm( |$)'; then
+  check_rm
+fi
+
+# ── 나머지 규칙: "단계 :: 패턴 :: 이유" ───────────────────────────────────
 while IFS= read -r rule; do
   [ -z "$rule" ] && continue
-  pattern="${rule%% :: *}"
-  reason="${rule##* :: }"
+  level="${rule%% :: *}"
+  rest="${rule#* :: }"
+  pattern="${rest%% :: *}"
+  reason="${rest##* :: }"
   if printf '%s' "$cmd" | grep -Eqi -- "$pattern"; then
-    deny "$reason"
+    if [ "$level" = block ]; then block "$reason"; else ask "$reason"; fi
   fi
 done <<'RULES'
-(^|[;&| ])rm +-[a-z]*r :: 폴더·파일을 통째로 삭제
-(^|[;&| ])sudo  :: 관리자 권한으로 실행
-git +push .*(--force|-f( |$)|\+[a-z]) :: 강제 푸시 (GitHub 기록이 사라질 수 있음)
-git +reset +--hard :: 저장 안 한 작업이 모두 사라짐
-git +clean +-[a-z]*f :: 추적 안 하는 파일이 모두 삭제됨
-git +checkout +(--)? *\.( |$) :: 저장 안 한 변경이 모두 사라짐
-(drop|truncate) +table :: 데이터베이스 테이블 삭제
-(cat|less|more|head|tail|type) +[^ ]*\.env( |$) :: 비밀 키 파일(.env) 내용이 화면에 노출됨
-(^|[;&| ])(printenv|env)( |$) :: 환경변수(비밀 키 포함)가 화면에 노출됨
-(curl|wget)[^|]*\| *(ba|z)?sh :: 인터넷에서 받은 스크립트를 확인 없이 실행
-chmod +-R +777 :: 모든 파일 권한을 열어버림
+block :: (^|[;&| ])sudo  :: 관리자 권한 명령은 컴퓨터 전체에 영향을 줘요
+block :: git +push .*(--force|-f( |$)|\+[a-z]) :: 강제 푸시는 GitHub에 있는 기록을 지울 수 있어요
+block :: (cat|less|more|head|tail|type|bat) +[^ ]*\.env( |$) :: 비밀 키 파일(.env) 내용이 대화에 노출돼요
+block :: (^|[;&| ])(printenv|env)( |$) :: 비밀 키가 들어 있는 환경변수가 대화에 노출돼요
+block :: (curl|wget)[^|]*\| *(ba|z)?sh :: 인터넷에서 받은 스크립트를 확인 없이 실행하면 위험해요
+block :: chmod +-R +777 :: 모든 파일의 권한을 열어버려요
+ask :: git +reset +--hard :: 저장 안 한 변경이 모두 사라져요. 보통은 /undo 를 쓰는 게 더 안전해요
+ask :: git +clean +-[a-z]*f :: Git에 저장된 적 없는 새 파일들이 삭제돼요
+ask :: git +(checkout +(--)? *|restore +)\.( |$) :: 저장 안 한 변경이 모두 사라져요. 보통은 /undo 를 쓰는 게 더 안전해요
+ask :: (drop|truncate) +table :: 데이터베이스의 표(데이터)가 통째로 삭제돼요
 RULES
 
 exit 0
