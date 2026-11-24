@@ -24,7 +24,16 @@
       "Bash(npm test *)",
       "Bash(node *)",
       "Bash(python *)",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(git --version)",
+      "Bash(git config user.name)",
+      "Bash(git config user.email)",
+      "Bash(git config user.name *)",
+      "Bash(git config user.email *)",
+      "Bash(git config core.quotepath false)",
+      "Bash(git init -b main)",
+      "Bash(git remote -v)",
+      "Bash(git branch --show-current)"
     ],
     "ask": [
       "Bash(npm install *)",
@@ -39,7 +48,13 @@
       "Bash(git stash drop *)",
       "Bash(rm -rf *)",
       "Bash(git reset --hard *)",
-      "Bash(git clean *)"
+      "Bash(git clean *)",
+      "Bash(pip3 install *)",
+      "Bash(python -m pip *)",
+      "Bash(python3 -m pip *)",
+      "Bash(py -m pip *)",
+      "Bash(brew install *)",
+      "Bash(winget install *)"
     ],
     "deny": [
       "Read(./.env)",
@@ -49,6 +64,8 @@
       "Read(./**/.env.*.local)",
       "Read(./**/.env.local)",
       "Edit(./.env)",
+      "Edit(./**/.env.local)",
+      "Edit(./**/.env)",
       "Bash(sudo *)",
       "Bash(git push --force *)",
       "Bash(git push -f *)"

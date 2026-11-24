@@ -1,13 +1,18 @@
 # my-project 폴더를 GitHub Pages에 자동으로 올리는 설정이에요.
 # 사용법: 이 파일을 .github/workflows/deploy-pages.yml 로 복사하고,
 #         레포 Settings → Pages → Source 를 "GitHub Actions" 로 바꾸세요.
-# 그 다음부터는 main에 저장(push)할 때마다 자동으로 사이트가 업데이트돼요.
+# 그 다음부터는 GitHub에 저장(push)할 때마다 자동으로 사이트가 업데이트돼요.
+# 바로 다시 올리고 싶으면: 레포 → Actions → 이 작업 선택 → "Run workflow" 버튼.
+#
+# 공개되지 않는 것: PROJECT.md(개인 메모), .env(비밀 키), data/·output/(업무·개인 데이터)
 name: Deploy my-project to GitHub Pages
 
 on:
   push:
-    branches: [main]
-    paths: ["my-project/**"]
+    branches: [main, master]
+    paths:
+      - "my-project/**"
+      - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -27,9 +32,14 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: 공개할 파일만 고르기
+        run: |
+          mkdir _site
+          cp -R my-project/. _site/
+          rm -rf _site/PROJECT.md _site/.env _site/.env.* _site/data _site/output
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: my-project
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

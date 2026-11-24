@@ -3,6 +3,10 @@
 .env.local
 .env.*.local
 
+# 업무·개인 데이터 (회사 파일, 고객 명단 등은 여기에 두세요. GitHub에 안 올라가요)
+my-project/data/
+my-project/output/
+
 # 설치된 라이브러리 (다시 설치하면 됨)
 node_modules/
 __pycache__/
