@@ -1,0 +1,35 @@
+# my-project 폴더를 GitHub Pages에 자동으로 올리는 설정이에요.
+# 사용법: 이 파일을 .github/workflows/deploy-pages.yml 로 복사하고,
+#         레포 Settings → Pages → Source 를 "GitHub Actions" 로 바꾸세요.
+# 그 다음부터는 main에 저장(push)할 때마다 자동으로 사이트가 업데이트돼요.
+name: Deploy my-project to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["my-project/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: my-project
+      - id: deployment
+        uses: actions/deploy-pages@v4
